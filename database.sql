@@ -24,3 +24,13 @@ CREATE TABLE IF NOT EXISTS reports (
 -- Note: The admin user will be inserted automatically by PHP using password_hash() 
 -- upon first loading the application (in config/db.php) to ensure proper hashing.
 -- If you want to insert manually, you can use a pre-hashed string for 'admin123'.
+
+CREATE TABLE IF NOT EXISTS drivers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    vehicle_type VARCHAR(50) NOT NULL,
+    vehicle_number VARCHAR(50) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
