@@ -46,6 +46,17 @@ try {
     )";
     $pdo->exec($stmtReports);
 
+    $stmtDrivers = "CREATE TABLE IF NOT EXISTS drivers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        vehicle_type VARCHAR(50) NOT NULL,
+        vehicle_number VARCHAR(50) NOT NULL,
+        phone VARCHAR(20) NOT NULL,
+        status ENUM('Active', 'Inactive') DEFAULT 'Active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )";
+    $pdo->exec($stmtDrivers);
+
     // Insert default admin if no admin exists
     $stmt = $pdo->query("SELECT id FROM users WHERE role='admin'");
     if ($stmt->rowCount() == 0) {
