@@ -49,6 +49,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
         $activeTab = 'settings';
     }
+
+    // Add Driver
+    elseif ($action === 'add_driver') {
+        $name = $_POST['name'];
+        $vehicle_type = $_POST['vehicle_type'];
+        $vehicle_number = $_POST['vehicle_number'];
+        $phone = $_POST['phone'];
+        $stmt = $pdo->prepare("INSERT INTO drivers (name, vehicle_type, vehicle_number, phone) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$name, $vehicle_type, $vehicle_number, $phone]);
+        $success = "Driver added successfully.";
+        $activeTab = 'drivers';
+    }
+    
+    // Toggle Driver Status
+    elseif ($action === 'toggle_driver_status') {
+        $driver_id = $_POST['driver_id'];
+        $current_status = $_POST['status'];
+        $new_status = $current_status === 'Active' ? 'Inactive' : 'Active';
+        $stmt = $pdo->prepare("UPDATE drivers SET status = ? WHERE id = ?");
+        $stmt->execute([$new_status, $driver_id]);
+        $success = "Driver status updated to $new_status.";
+        $activeTab = 'drivers';
+    }
 }
 
 // Handle GET Deletions
@@ -57,6 +80,14 @@ if (isset($_GET['delete_report'])) {
     $stmt = $pdo->prepare("DELETE FROM reports WHERE id = ?");
     $stmt->execute([$report_id]);
     header("Location: dashboard.php?msg=" . urlencode("Report deleted.") . "&tab=all_reports");
+    exit();
+}
+
+if (isset($_GET['delete_driver'])) {
+    $driver_id = $_GET['delete_driver'];
+    $stmt = $pdo->prepare("DELETE FROM drivers WHERE id = ?");
+    $stmt->execute([$driver_id]);
+    header("Location: dashboard.php?msg=" . urlencode("Driver deleted.") . "&tab=drivers");
     exit();
 }
 
@@ -95,6 +126,10 @@ $stmtPending = $pdo->query("
 ");
 $pendingReports = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Drivers
+$stmtDrivers = $pdo->query("SELECT * FROM drivers ORDER BY created_at DESC");
+$drivers = $stmtDrivers->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -127,6 +162,7 @@ $pendingReports = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
         <button class="menu-btn <?php echo $activeTab === 'users' ? 'active' : ''; ?>" onclick="showTab('users')">Manage Users</button>
         <button class="menu-btn <?php echo $activeTab === 'all_reports' ? 'active' : ''; ?>" onclick="showTab('all_reports')">All Reports</button>
         <button class="menu-btn <?php echo $activeTab === 'pending_reports' ? 'active' : ''; ?>" onclick="showTab('pending_reports')">Pending Reports</button>
+        <button class="menu-btn <?php echo $activeTab === 'drivers' ? 'active' : ''; ?>" onclick="showTab('drivers')">Manage Drivers</button>
         <button class="menu-btn <?php echo $activeTab === 'settings' ? 'active' : ''; ?>" onclick="showTab('settings')">Settings</button>
         <a href="print_logs.php" target="_blank" class="menu-btn" style="text-decoration:none; display:block; color:#D97706; margin-top:2rem; border:1px solid #D97706; text-align:center;">
              Print / Save Audit Logs (PDF)
@@ -226,6 +262,84 @@ $pendingReports = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
                         $return_tab = 'pending_reports';
                         include 'reports_table_render.php'; 
                     ?>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Drivers -->
+        <section id="drivers" class="tab-content <?php echo $activeTab === 'drivers' ? 'active' : ''; ?>">
+            <div class="card">
+                <h2>Manage Drivers</h2>
+                <form action="dashboard.php" method="POST" style="margin-bottom: 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <input type="hidden" name="action" value="add_driver">
+                    <div class="form-group">
+                        <label>Driver Name</label>
+                        <input type="text" name="name" class="form-control" required placeholder="Full Name">
+                    </div>
+                    <div class="form-group">
+                        <label>Vehicle Type</label>
+                        <input type="text" name="vehicle_type" class="form-control" required placeholder="e.g. Garbage Truck">
+                    </div>
+                    <div class="form-group">
+                        <label>Vehicle Number</label>
+                        <input type="text" name="vehicle_number" class="form-control" required placeholder="e.g. AB-1234">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="text" name="phone" class="form-control" required placeholder="Phone Number">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <button type="submit" class="btn-block" style="width: auto;">Add Driver</button>
+                    </div>
+                </form>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Vehicle Info</th>
+                                <th>Phone</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($drivers as $driver): ?>
+                            <tr>
+                                <td>#<?php echo $driver['id']; ?></td>
+                                <td><?php echo htmlspecialchars($driver['name']); ?></td>
+                                <td><?php echo htmlspecialchars($driver['vehicle_type']) . '<br><small style="color:var(--text-muted);">' . htmlspecialchars($driver['vehicle_number']) . '</small>'; ?></td>
+                                <td><?php echo htmlspecialchars($driver['phone']); ?></td>
+                                <td>
+                                    <?php if($driver['status'] === 'Active'): ?>
+                                        <span class="status collected">Active</span>
+                                    <?php else: ?>
+                                        <span class="status" style="background:#FEE2E2; color:#B91C1C;">Inactive</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <form action="dashboard.php" method="POST" style="display:inline-block;">
+                                        <input type="hidden" name="action" value="toggle_driver_status">
+                                        <input type="hidden" name="driver_id" value="<?php echo $driver['id']; ?>">
+                                        <input type="hidden" name="status" value="<?php echo $driver['status']; ?>">
+                                        <button type="submit" style="padding: 0.25rem 0.5rem; font-size: 0.8rem; background: #6B7280; border: none; cursor: pointer; color: white; border-radius: 4px;">
+                                            <?php echo ($driver['status'] === 'Active') ? 'Deactivate' : 'Activate'; ?>
+                                        </button>
+                                    </form>
+                                    <a href="edit_driver.php?id=<?php echo $driver['id']; ?>" class="action-link" style="margin-left:8px;">Edit</a>
+                                    <a href="?delete_driver=<?php echo $driver['id']; ?>" class="action-link del-link" style="margin-left:8px;" onclick="return confirm('Delete this driver?');">Delete</a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php if(empty($drivers)): ?>
+                            <tr>
+                                <td colspan="6" style="text-align: center;">No drivers found.</td>
+                            </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </section>
